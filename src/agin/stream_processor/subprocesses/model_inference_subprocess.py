@@ -140,7 +140,7 @@ class ModelInferenceSubprocess:
 
         self.pipelines = []
 
-        path_to_models = "../GenMirror/AGIN/models/"
+        path_to_models = self.config["models_path"]
 
         class MockUnet:
             def __init__(self, config_path):
@@ -149,7 +149,7 @@ class ModelInferenceSubprocess:
                 with open(config_path, 'r') as f:
                     self.config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
                     
-        self.unet = MockUnet(path_to_models + "unet_turbo/config.json")
+        self.unet = MockUnet(path_to_models + "unet/config.json")
 
         class MockControlnet:
             def __init__(self, config_path):
@@ -160,12 +160,8 @@ class ModelInferenceSubprocess:
                     
         self.controlnet = MockControlnet(path_to_models + "controlnet/config.json")
 
-        self.text_encoder = CLIPTextModel.from_pretrained(
-            path_to_models + "text_encoder"
-        ).to("cuda", torch.float16)
-        self.text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(
-            path_to_models + "text_encoder_2"
-        ).to("cuda", torch.float16)
+        self.text_encoder = CLIPTextModel.from_pretrained(path_to_models + "text_encoder").to("cuda", torch.float16)
+        self.text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(path_to_models + "text_encoder_2").to("cuda", torch.float16)
 
         self.tokenizer = CLIPTokenizer.from_pretrained(path_to_models + "tokenizer")
         self.tokenizer_2 = CLIPTokenizer.from_pretrained(path_to_models + "tokenizer_2")
@@ -178,11 +174,11 @@ class ModelInferenceSubprocess:
         engines_path = self.config["engines_path"]
 
         cuda_stream = cuda.Stream()
-        self.decoder_engine = DecoderEngine(engines_path + "big_decoder.engine", cuda_stream, self.resolution)
-        self.encoder_engine = EncoderEngine(engines_path + "encoder.engine", cuda_stream, self.resolution)
-        self.unet_engine = UnetEngine(engines_path + "unet.engine", cuda_stream, self.resolution)
-        self.controlnet_engine = ControlnetEngine(engines_path + "controlnet.engine", cuda_stream, self.resolution)
-        self.inerpolation_model_engine = InterpolationModelEngine(engines_path + "interpolation_model.engine", cuda_stream, self.resolution)
+        self.decoder_engine = DecoderEngine(engines_path + self.config["engines_filenames"]["decoder"], cuda_stream, self.resolution)
+        self.encoder_engine = EncoderEngine(engines_path + self.config["engines_filenames"]["encoder"], cuda_stream, self.resolution)
+        self.unet_engine = UnetEngine(engines_path + self.config["engines_filenames"]["unet"], cuda_stream, self.resolution)
+        self.controlnet_engine = ControlnetEngine(engines_path + self.config["engines_filenames"]["controlnet"], cuda_stream, self.resolution)
+        self.interpolation_model_engine = InterpolationModelEngine(engines_path + self.config["engines_filenames"]["interpolation_model"], cuda_stream, self.resolution)
 
         self.previous_frame = None
 
@@ -354,7 +350,7 @@ class ModelInferenceSubprocess:
             if self.previous_frame is None:
                 self.previous_frame = image
 
-            interpolated_image = self.inerpolation_model_engine(torch.cat([self.previous_frame, image], dim=1))
+            interpolated_image = self.interpolation_model_engine(torch.cat([self.previous_frame, image], dim=1))
             self.previous_frame = image
 
             frames_gpu = torch.cat([interpolated_image, image], dim=0)

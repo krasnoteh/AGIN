@@ -20,7 +20,7 @@ def main():
     #stream_processor.set_prompt("A man in the Torpedo hockey club blue uniform with red details, large red sign and blue hockey helmet.")
     stream_processor.set_prompt("A detailed art in style of Alexandra Getke, dots and lines, intricate and complex")
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(4)
     while True:
         ret, frame = cap.read()
         resized_frame = crop_maximal_rectangle(frame, resolution["height"], resolution["width"])
