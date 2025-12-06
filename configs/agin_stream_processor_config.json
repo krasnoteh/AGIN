@@ -1,0 +1,15 @@
+{
+    "default_prompt" : "cyberpunk street, neon lamps",
+    "default_steps" : 2,
+    "default_inversion_strength" : 1.0,
+    "default_controlnet_conditioning_scale" : 0.7,
+    "default_attention_chain_update_interval" : 10,
+    "default_canny_low_threshold" : 30,
+    "default_canny_high_threshold" : 30,
+    "default_seed" : 52,
+    "engines_path" : "engines/portrait_engines/",
+    "resolution" : {
+        "height" : 1344,
+        "width" : 768
+    }
+}
