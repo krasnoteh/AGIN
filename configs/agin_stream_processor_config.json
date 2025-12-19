@@ -13,7 +13,7 @@
         "unet" : "unet.engine",
         "controlnet" : "detail_controlnet.engine",
         "encoder" : "encoder.engine",
-        "decoder" : "full_decoder.engine",
+        "decoder" : "tiny_decoder.engine",
         "interpolation_model" : "interpolation_model.engine"
     },
     "resolution" : {

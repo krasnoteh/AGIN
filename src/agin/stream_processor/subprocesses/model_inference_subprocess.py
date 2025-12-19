@@ -23,7 +23,6 @@ from queue import Empty
 
 from agin.utils.shared_tensor import SharedTensor
 
-
 class PipeCache:
     def __init__(self):
         self.prompt_cache = {}
@@ -218,7 +217,6 @@ class ModelInferenceSubprocess:
         color_conditioning_image = cv2.cvtColor(color_conditioning_image, cv2.COLOR_RGB2BGR)
 
         canny = cv2.Canny(image_input, self.process_state["canny_low_threshold"], self.process_state["canny_low_threshold"])
-        
         canny = canny[:, :, None]
         canny_image = np.concatenate([canny, canny, canny], axis=2)
         

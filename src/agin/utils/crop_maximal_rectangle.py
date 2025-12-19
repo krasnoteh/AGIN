@@ -33,6 +33,6 @@ def crop_maximal_rectangle(image: np.ndarray, target_height: int, target_width: 
     start_y = (input_image_height - crop_height) // 2
 
     cropped_image = image[start_y:start_y + crop_height, start_x:start_x + crop_width]
-    image = cv2.resize(cropped_image, (target_width, target_height))
+    image = cv2.resize(cropped_image, (target_width, target_height), cv2.INTER_AREA)
 
     return image
