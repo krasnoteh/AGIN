@@ -1,3 +1,3 @@
-from .agin_stream_processor import AginStreamProcessor
+from .stream_processor import StreamProcessor
 
-__all__ = ["AginStreamProcessor"]
+__all__ = ["StreamProcessor"]

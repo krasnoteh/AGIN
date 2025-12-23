@@ -1,24 +1,22 @@
-from agin import AginStreamProcessor, SharedTensor
+from agin import StreamProcessor, SharedTensor
 from agin.utils import crop_maximal_rectangle
 import json
 import time
 import cv2
 
 def main():
-    config_path = "configs/agin_stream_processor_config.json"
+    config_path = "configs/stream_processor_config.json"
     with open(config_path, 'r') as file:
         config = json.load(file)
 
     resolution = config["resolution"]
 
-    stream_processor = AginStreamProcessor(config_path)
+    stream_processor = StreamProcessor(config_path)
     stream_processor.start()
     input_shared_tensor = SharedTensor((resolution["height"], resolution["width"], 3), name=stream_processor.get_input_shared_tensor_name())
     output_shared_tensor = SharedTensor((resolution["height"], resolution["width"], 3), name=stream_processor.get_output_shared_tensor_name())
 
-    stream_processor.set_prompt("Yakut national Olonkho art, fur, arctic, large central sun rosette circle, costumes of patterned cloth with braid, art in white, grey and crimson colors in style of Kandinsky")
-    #stream_processor.set_prompt("A man in the Torpedo hockey club blue uniform with red details, large red sign and blue hockey helmet.")
-    #stream_processor.set_prompt("A detailed art in style of Alexandra Getke, dots and lines, intricate and complex")
+    stream_processor.set_prompt("A man in the cyberpunk street, night, neon lamps, colorful")
 
     cap = cv2.VideoCapture(4)
     while True:

@@ -5,20 +5,17 @@ from agin.stream_processor.engine_wrappers.unet_engine import UnetEngine
 from agin.stream_processor.engine_wrappers.controlnet_engine import ControlnetEngine
 from agin.stream_processor.engine_wrappers.interpolation_model_engine import InterpolationModelEngine
 
-from diffusers import EulerDiscreteScheduler, AutoencoderTiny
 from diffusers import EulerAncestralDiscreteScheduler
 from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjection
 from polygraphy import cuda
 import numpy as np
 import torch
 import time
+import os
 
-from multiprocessing import Process, Value, Manager, Event
-from types import SimpleNamespace
+from multiprocessing import Process, Value, Manager
 from copy import deepcopy
-import json
 import cv2
-import random
 from queue import Empty
 
 from agin.utils.shared_tensor import SharedTensor
@@ -26,7 +23,6 @@ from agin.utils.shared_tensor import SharedTensor
 class PipeCache:
     def __init__(self):
         self.prompt_cache = {}
-        self.noise_cache = None
 
 class ExtendedAttentionHandler:
     def __init__(self, height, width):
@@ -51,22 +47,21 @@ class ExtendedAttentionHandler:
     def update_chain(self, timestep : float, extention : tuple):
             self.chains[timestep] = extention
 
-    def get_chain_extention(self, timestep : float) -> tuple:
+    def get_chain_extension(self, timestep : float) -> tuple:
 
         if timestep in self.chains:
             return self.chains[timestep]
-        
         else:
             return self.make_zero_extention(1)
         
-    def make_extentions_for_tasks(self, tasks):
+    def make_extensions_for_tasks(self, tasks):
 
         ext_att1_key_list, ext_att1_val_list = [], []
         ext_att2_key_list, ext_att2_val_list = [], []
         
         for task in tasks:
-            timestep = float(task["t"].item())
-            ext_att = self.get_chain_extention(timestep)
+            timestep = float(task["timestep"].item())
+            ext_att = self.get_chain_extension(timestep)
             ext_att1_key_list.append(ext_att[0])
             ext_att1_val_list.append(ext_att[1])
             ext_att2_key_list.append(ext_att[2])
@@ -93,7 +88,7 @@ class ExtendedAttentionHandler:
         new_ea2_val_chunks = new_ea2_val.chunk(batch_size, dim=0)
         
         for i, task in enumerate(tasks):
-            timestep = float(task["t"].item())
+            timestep = float(task["timestep"].item())
             new_ext_att = (
                 new_ea1_key_chunks[i],
                 new_ea1_val_chunks[i],
@@ -128,7 +123,6 @@ class ModelInferenceSubprocess:
                 "steps" : self.config["default_steps"],
                 "inversion_strength" : self.config["default_inversion_strength"],
                 "controlnet_conditioning_scale" : self.config["default_controlnet_conditioning_scale"],
-                "attention_chain_update_interval" : self.config["default_attention_chain_update_interval"],
                 "canny_low_threshold" : self.config["default_canny_low_threshold"],
                 "canny_high_threshold" : self.config["default_canny_high_threshold"],
                 "seed" : self.config["default_seed"]
@@ -139,53 +133,37 @@ class ModelInferenceSubprocess:
 
         self.pipelines = []
 
-        path_to_models = self.config["models_path"]
+        models_path = self.config["models_path"]
+        text_encoder_path = os.path.join(models_path, self.config["models_directories"]["text_encoder"])
+        text_encoder_2_path = os.path.join(models_path, self.config["models_directories"]["text_encoder_2"])
+        tokenizer_path = os.path.join(models_path, self.config["models_directories"]["tokenizer"])
+        tokenizer_2_path = os.path.join(models_path, self.config["models_directories"]["tokenizer_2"])
+        scheduler_path = os.path.join(models_path,  self.config["models_directories"]["scheduler"])
 
-        class MockUnet:
-            def __init__(self, config_path):
-                self.dtype = torch.float16
-                self.device = "cuda"
-                with open(config_path, 'r') as f:
-                    self.config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-                    
-        self.unet = MockUnet(path_to_models + "unet/config.json")
-
-        class MockControlnet:
-            def __init__(self, config_path):
-                self.dtype = torch.float16
-                self.device = "cuda"
-                with open(config_path, 'r') as f:
-                    self.config = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-                    
-        self.controlnet = MockControlnet(path_to_models + "controlnet/config.json")
-
-        self.text_encoder = CLIPTextModel.from_pretrained(path_to_models + "text_encoder").to("cuda", torch.float16)
-        self.text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(path_to_models + "text_encoder_2").to("cuda", torch.float16)
-
-        self.tokenizer = CLIPTokenizer.from_pretrained(path_to_models + "tokenizer")
-        self.tokenizer_2 = CLIPTokenizer.from_pretrained(path_to_models + "tokenizer_2")
-
-        self.scheduler = EulerAncestralDiscreteScheduler.from_pretrained(
-            path_to_models + "scheduler_turbo",
-            timestep_spacing="trailing"
-        )
+        self.text_encoder = CLIPTextModel.from_pretrained(text_encoder_path).to("cuda", torch.float16)
+        self.text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(text_encoder_2_path).to("cuda", torch.float16)
+        self.tokenizer = CLIPTokenizer.from_pretrained(tokenizer_path)
+        self.tokenizer_2 = CLIPTokenizer.from_pretrained(tokenizer_2_path)
+        self.scheduler = EulerAncestralDiscreteScheduler.from_pretrained(scheduler_path, timestep_spacing = "trailing")
 
         engines_path = self.config["engines_path"]
+        decoder_engine_path = os.path.join(engines_path, self.config["engines_filenames"]["decoder"])
+        encoder_engine_path = os.path.join(engines_path, self.config["engines_filenames"]["encoder"])
+        unet_engine_path = os.path.join(engines_path, self.config["engines_filenames"]["unet"])
+        controlnet_engine_path = os.path.join(engines_path, self.config["engines_filenames"]["controlnet"])
+        interpolation_model_engine_path = os.path.join(engines_path, self.config["engines_filenames"]["interpolation_model"])
 
         cuda_stream = cuda.Stream()
-        self.decoder_engine = DecoderEngine(engines_path + self.config["engines_filenames"]["decoder"], cuda_stream, self.resolution)
-        self.encoder_engine = EncoderEngine(engines_path + self.config["engines_filenames"]["encoder"], cuda_stream, self.resolution)
-        self.unet_engine = UnetEngine(engines_path + self.config["engines_filenames"]["unet"], cuda_stream, self.resolution)
-        self.controlnet_engine = ControlnetEngine(engines_path + self.config["engines_filenames"]["controlnet"], cuda_stream, self.resolution)
-        self.interpolation_model_engine = InterpolationModelEngine(engines_path + self.config["engines_filenames"]["interpolation_model"], cuda_stream, self.resolution)
+        self.decoder_engine = DecoderEngine(decoder_engine_path, cuda_stream, self.resolution)
+        self.encoder_engine = EncoderEngine(encoder_engine_path, cuda_stream, self.resolution)
+        self.unet_engine = UnetEngine(unet_engine_path, cuda_stream, self.resolution)
+        self.controlnet_engine = ControlnetEngine(controlnet_engine_path, cuda_stream, self.resolution)
+        self.interpolation_model_engine = InterpolationModelEngine(interpolation_model_engine_path, cuda_stream, self.resolution)
+        
+        self.pipe_cache = PipeCache()
+        self.ext_attention_handler = ExtendedAttentionHandler(self.height, self.width)
 
         self.previous_frame = None
-
-        self.pipe_cache = PipeCache()
-
-        self.ext_attention_handler = ExtendedAttentionHandler(self.height, self.width)
-        
-        self.count = 0
 
     def start(self):
         self.running.value = True
@@ -207,34 +185,29 @@ class ModelInferenceSubprocess:
                 text_encoder_2=self.text_encoder_2,
                 tokenizer=self.tokenizer,
                 tokenizer_2=self.tokenizer_2,
-                unet=self.unet,
                 scheduler=new_sheduler,
-                feature_extractor=None,
-                controlnet = self.controlnet
+                seed=self.process_state["seed"]
         )
 
         color_conditioning_image = image_input
         color_conditioning_image = cv2.cvtColor(color_conditioning_image, cv2.COLOR_RGB2BGR)
 
-        canny = cv2.Canny(image_input, self.process_state["canny_low_threshold"], self.process_state["canny_low_threshold"])
+        canny = cv2.Canny(image_input, self.process_state["canny_low_threshold"], self.process_state["canny_high_threshold"])
         canny = canny[:, :, None]
         canny_image = np.concatenate([canny, canny, canny], axis=2)
-        
-        generator = torch.Generator(device="cuda").manual_seed(self.process_state["seed"])
-        
+
         pipe.execute_preparations(self.process_state['prompt'],
                                   num_inference_steps=self.process_state["steps"],
                                   controlnet_image = canny_image,
                                   color_conditioning_image = color_conditioning_image,
                                   inversion_strength = self.process_state["inversion_strength"],
                                   controlnet_conditioning_scale= self.process_state["controlnet_conditioning_scale"],
-                                  pipe_cache = self.pipe_cache,
-                                  generator = generator)
+                                  pipe_cache = self.pipe_cache)
 
         self.pipelines.append(pipe)
 
+    @torch.no_grad()
     def step_all_pipelines(self):
-        self.count += 1
         if not self.pipelines:
             return
 
@@ -248,35 +221,35 @@ class ModelInferenceSubprocess:
             return torch.cat([key_fn(t) for t in tasks], dim=0)
         
         control_inputs = (
-            batch_tensors(lambda t: t["control_model_input"]),
-            torch.stack([t["t"] for t in tasks]),
-            batch_tensors(lambda t: t["controlnet_prompt_embeds"]),
-            batch_tensors(lambda t: t["controlnet_cond"]),
-            batch_tensors(lambda t: t["controlnet_added_cond_kwargs"]['text_embeds']),
-            batch_tensors(lambda t: t["controlnet_added_cond_kwargs"]['time_ids'])
+            batch_tensors(lambda t: t["sample"]),
+            torch.stack([t["timestep"] for t in tasks]),
+            batch_tensors(lambda t: t["encoder_hidden_states"]),
+            batch_tensors(lambda t: t["controlnet_image"]),
+            batch_tensors(lambda t: t["added_cond_kwargs"]['text_embeds']),
+            batch_tensors(lambda t: t["added_cond_kwargs"]['time_ids'])
         )
         
         controlnet_connections = self.controlnet_engine(*control_inputs)
 
         conditioning_scales = torch.tensor(
-            [t["conditioning_scale"] for t in tasks],
-            dtype=self.unet.dtype,
-            device=self.unet.device
+            [t["controlnet_conditioning_scale"] for t in tasks],
+            dtype=torch.float16,
+            device="cuda"
         ).view(-1, 1, 1, 1)
 
         down_block = [
-            (conn * conditioning_scales).to(self.unet.dtype)
+            (conn * conditioning_scales)
             for conn in controlnet_connections[:9]
         ]
-        mid_block = (controlnet_connections[-1] * conditioning_scales).to(self.unet.dtype)
+        mid_block = (controlnet_connections[-1] * conditioning_scales)
 
         batch_size = len(tasks)
         
-        extentions = self.ext_attention_handler.make_extentions_for_tasks(tasks)
+        extentions = self.ext_attention_handler.make_extensions_for_tasks(tasks)
 
         unet_inputs = (
-            batch_tensors(lambda t: t["latent_model_input"]),
-            torch.stack([t["t"] for t in tasks]),
+            batch_tensors(lambda t: t["sample"]),
+            torch.stack([t["timestep"] for t in tasks]),
             batch_tensors(lambda t: t["encoder_hidden_states"]),
             *down_block,
             mid_block,
@@ -285,16 +258,12 @@ class ModelInferenceSubprocess:
             *extentions
         )
         
-        if self.count % self.process_state["attention_chain_update_interval"] == 0:
-            batched_output = self.unet_engine(*unet_inputs)
-            noise, new_ea1_key, new_ea1_val, new_ea2_key, new_ea2_val = batched_output
+        batched_output = self.unet_engine(*unet_inputs)
+        noise, new_ea1_key, new_ea1_val, new_ea2_key, new_ea2_val = batched_output
 
-            extention = new_ea1_key, new_ea1_val, new_ea2_key, new_ea2_val
-            self.ext_attention_handler.update_chains_from_batch(extention, tasks)
+        extention = new_ea1_key, new_ea1_val, new_ea2_key, new_ea2_val
 
-        else:
-            batched_output = self.unet_engine(*unet_inputs)
-            noise, new_ea1_key, new_ea1_val, new_ea2_key, new_ea2_val = batched_output
+        self.ext_attention_handler.update_chains_from_batch(extention, tasks)
 
         for pipe, result in zip(active_pipes, noise.chunk(batch_size, dim=0)):
             pipe.return_diffusion_result((result,))
@@ -352,17 +321,13 @@ class ModelInferenceSubprocess:
             self.previous_frame = image
 
             frames_gpu = torch.cat([interpolated_image, image], dim=0)
-
             frames_cpu = (frames_gpu * 255).to(torch.uint8).permute(0, 2, 3, 1).to("cpu").numpy()
-
             frames_cpu_bgr = frames_cpu[..., ::-1]
-
             self.output_batch_shared_tensor.copy_from(frames_cpu_bgr)
-
             self.pack_is_ready.value = True
 
             processing_time = time.time() - prev_time
             prev_time = time.time()
             self.last_processing_time.value = processing_time
-            print("processing_time", processing_time, "fps", 1 / processing_time)
+            print("fps", 1 / processing_time)
             

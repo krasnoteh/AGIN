@@ -3,12 +3,18 @@
     "default_steps" : 2,
     "default_inversion_strength" : 1.0,
     "default_controlnet_conditioning_scale" : 0.7,
-    "default_attention_chain_update_interval" : 10,
     "default_canny_low_threshold" : 30,
     "default_canny_high_threshold" : 30,
     "default_seed" : 52,
-    "models_path" : "C:/Users/Admin/ML projects/GenMirror/AGIN/models/",
-    "engines_path" : "engines/portrait_engines/",
+    "models_path" : "models",
+    "models_directories": {
+        "text_encoder": "text_encoder",
+        "text_encoder_2": "text_encoder_2",
+        "tokenizer": "tokenizer",
+        "tokenizer_2": "tokenizer_2",
+        "scheduler": "scheduler"
+    },
+    "engines_path" : "engines/portrait_engines",
     "engines_filenames" : {
         "unet" : "unet.engine",
         "controlnet" : "detail_controlnet.engine",

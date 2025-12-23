@@ -1,4 +1,4 @@
-from agin import AginStreamProcessor, SharedTensor
+from agin import StreamProcessor, SharedTensor
 from agin.utils import crop_maximal_rectangle
 import json
 import time
@@ -19,7 +19,7 @@ class ZeromqServer:
         self.socket.bind(port) 
 
     def run(self) -> None:
-        self.stream_processor = AginStreamProcessor(self.stream_processor_config_path)
+        self.stream_processor = StreamProcessor(self.stream_processor_config_path)
         self.stream_processor.start()
         print("Zero MQ server is running on port", self.port)
 

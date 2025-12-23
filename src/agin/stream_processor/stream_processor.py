@@ -7,7 +7,7 @@ import json
 import time
 
 
-class AginStreamProcessor:
+class StreamProcessor:
     def __init__(self, config_path: str):
         self.config = self.parse_config(config_path)
 
@@ -46,9 +46,6 @@ class AginStreamProcessor:
 
     def set_controlnet_conditioning_scale(self, controlnet_conditioning_scale: float) -> None:
         self.model_inference_subprocess.set_param(name="controlnet_conditioning_scale", value=controlnet_conditioning_scale)
-
-    def set_attention_chain_update_interval(self, attention_chain_update_interval: int) -> None:
-        self.model_inference_subprocess.set_param(name="attention_chain_update_interval", value=attention_chain_update_interval)
 
     def set_canny_low_threshold(self, canny_low_threshold: int) -> None:
         self.model_inference_subprocess.set_param(name="canny_low_threshold", value=canny_low_threshold)
