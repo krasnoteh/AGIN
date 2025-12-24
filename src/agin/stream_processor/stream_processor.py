@@ -10,14 +10,8 @@ import time
 class StreamProcessor:
     def __init__(self, config_path: str):
         self.config = self.parse_config(config_path)
-
         self.resolution = self.config["resolution"]
 
-    def parse_config(self, config_path: str) -> dict:
-        with open(config_path, 'r') as file:
-            return json.load(file)
-
-    def start(self) -> None:
         self.input_shared_tensor = SharedTensor((self.resolution["height"], self.resolution["width"], 3), create=True)
         self.output_shared_tensor = SharedTensor((self.resolution["height"], self.resolution["width"], 3), create=True)
         self.output_batch_shared_tensor = SharedTensor((2, self.resolution["height"], self.resolution["width"], 3), create=True)
@@ -27,10 +21,16 @@ class StreamProcessor:
         
         self.model_inference_subprocess = ModelInferenceSubprocess(
             self.config, self.input_shared_tensor.name, self.output_batch_shared_tensor.name, self.pack_is_ready, self.last_processing_time)
-        self.model_inference_subprocess.start()
-
+        
         self.output_scheduler_subprocess = OutputSchedulerSubprocess(
             self.config, self.output_batch_shared_tensor.name, self.output_shared_tensor.name, self.pack_is_ready, self.last_processing_time)
+        
+    def parse_config(self, config_path: str) -> dict:
+        with open(config_path, 'r') as file:
+            return json.load(file)
+
+    def start(self) -> None:
+        self.model_inference_subprocess.start()
         self.output_scheduler_subprocess.start()
 
     def get_input_tensor(self) -> SharedTensor:

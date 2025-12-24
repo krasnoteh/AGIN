@@ -1,7 +1,6 @@
 {
     "path_to_models": "models/",
     "engine_save_path": "engines/square_engines/",
-    "use_float16": True,
     "resolution" : {
         "height" : 1024,
         "width" : 1024

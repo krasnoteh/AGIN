@@ -1,18 +1,19 @@
-from diffusers import AutoencoderTiny
-from dependencies.interpolation_model import IFNet
-from safetensors.torch import load_file
+from agin.engine_compilation_tools.interpolation_model import IFNet
 import torch
 import tensorrt as trt
 import shutil
 import os
 
-from dependencies.app_config import AppConfig
+from agin.engine_compilation_tools.config import Config
 
 # Step 0: prepare
 
-config = AppConfig.from_json("config.json")
-
+config = Config.from_json("configs/engine_compiler_config.json")
+torch_dtype = torch.float16
+onnx_model_filename = "interpolation_model.onnx"
 engine_path = config.engine_save_path / "interpolation_model.engine"
+
+
 if os.path.isfile(engine_path):
     print("Engine", engine_path, "already exists.")
     exit()
@@ -34,14 +35,12 @@ interpolation_model.eval()
 
 # Step 2: save it as onnx model
 
-torch_dtype = torch.float16
-
-images = torch.randn(1, 6, config.height, config.width).to("cuda", config.torch_dtype)
+images = torch.randn(1, 6, config.height, config.width).to("cuda", torch_dtype)
 
 torch.onnx.export(
     interpolation_model,
     images,
-    config.path_to_temp_onnx_models / "interpolation_model.onnx",
+    onnx_model_filename,
     export_params=True,
     opset_version=17,
     do_constant_folding=True,
@@ -62,10 +61,10 @@ flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 network = builder.create_network(flag)
 parser = trt.OnnxParser(network, TRT_LOGGER)
 
-path_onnx_model = config.path_to_temp_onnx_models / "interpolation_model.onnx"
-with open(path_onnx_model, "rb") as f:
+
+with open(onnx_model_filename, "rb") as f:
     if not parser.parse(f.read()):
-        print(f"ERROR: Failed to parse the ONNX file {path_onnx_model}")
+        print(f"ERROR: Failed to parse the ONNX file {onnx_model_filename}")
         for error in range(parser.num_errors):
             print(parser.get_error(error))
             
@@ -85,10 +84,8 @@ for i in range(network.num_inputs):
     input = network.get_input(i)
     input_dims = list(input.shape)
     
-    # Extract static dimensions (all except batch dimension)
-    static_dims = input_dims[1:]  # Remove batch dimension
+    static_dims = input_dims[1:]
     
-    # Set dynamic batch dimensions for min/opt/max
     min_shape = [1] + static_dims
     opt_shape = [max_batch_size] + static_dims
     max_shape = [max_batch_size] + static_dims
@@ -107,5 +104,4 @@ with open(engine_path, "wb") as f:
 
 # Step 5: post-compilation cleanup
 
-if config.delete_onnx_models_after_compilation:
-    shutil.rmtree(config.path_to_temp_onnx_models)
+os.remove(onnx_model_filename)

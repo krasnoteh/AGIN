@@ -7,13 +7,16 @@ import shutil
 import os
 import torch.nn as nn
 
-from dependencies.app_config import AppConfig
+from agin.engine_compilation_tools.config import Config
 
 # Step 0: prepare
 
-config = AppConfig.from_json("config.json")
+config = Config.from_json("configs/engine_compiler_config.json")
+torch_dtype = torch.float16
+onnx_model_filename = "decoder.onnx"
+engine_path = config.engine_save_path / "vae_decoder.engine"
 
-engine_path = config.engine_save_path / "full_decoder.engine"
+
 if os.path.isfile(engine_path):
     print("Engine", engine_path, "already exists.")
     exit()
@@ -21,9 +24,10 @@ if os.path.isfile(engine_path):
 # Step 1: load model as torch model
 
 vae_config = AutoencoderKL.load_config(config.path_to_models / "vae/config.json")
-vae = AutoencoderKL.from_config(vae_config).to("cuda", config.torch_dtype)
-vae.load_state_dict(load_file(config.path_to_models / "vae/weights.safetensors", device="cuda"))
+vae = AutoencoderKL.from_config(vae_config, device="cpu")
+vae.load_state_dict(load_file(config.path_to_models / "vae/weights.safetensors", device="cpu"))
 
+# Wrapper around standart SDXL decoder to keep engine's interface same as TAESDXL decoder.
 class PostQuantDecoder(nn.Module):
     def __init__(self, vae):
         super().__init__()
@@ -41,17 +45,19 @@ class PostQuantDecoder(nn.Module):
 decoder = PostQuantDecoder(vae)
 decoder = decoder.eval()
 
+decoder.to("cuda", torch_dtype)
+
 # Step 2: save it as onnx model
 
 latent_height = config.height // 8
 latent_width = config.width // 8
 
-dummy_input = torch.randn(1, 4, latent_height, latent_width).to("cuda", config.torch_dtype)
+dummy_input = torch.randn(1, 4, latent_height, latent_width).to("cuda", torch_dtype)
 
 torch.onnx.export(
     decoder,
     dummy_input,
-    config.path_to_temp_onnx_models / "big_decoder.onnx",
+    onnx_model_filename,
     export_params=True,
     opset_version=14,
     do_constant_folding=True,
@@ -62,6 +68,10 @@ torch.onnx.export(
         "output": {0: "batch_size"},
     },
 )
+
+del vae
+del decoder
+torch.cuda.empty_cache()
 
 # Step 3: configure engine
 
@@ -75,10 +85,9 @@ flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 network = builder.create_network(flag)
 parser = trt.OnnxParser(network, TRT_LOGGER)
 
-path_onnx_model = config.path_to_temp_onnx_models / "big_decoder.onnx"
-with open(path_onnx_model, "rb") as f:
+with open(onnx_model_filename, "rb") as f:
     if not parser.parse(f.read()):
-        print(f"ERROR: Failed to parse the ONNX file {path_onnx_model}")
+        print(f"ERROR: Failed to parse the ONNX file {onnx_model_filename}")
         for error in range(parser.num_errors):
             print(parser.get_error(error))
             
@@ -119,5 +128,4 @@ with open(engine_path, "wb") as f:
 
 # Step 5: post-compilation cleanup
 
-if config.delete_onnx_models_after_compilation:
-    shutil.rmtree(config.path_to_temp_onnx_models)
+os.remove(onnx_model_filename)

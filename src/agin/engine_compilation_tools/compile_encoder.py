@@ -2,14 +2,15 @@ from diffusers import AutoencoderTiny
 from safetensors.torch import load_file
 import torch
 import tensorrt as trt
-import shutil
 import os
 
-from dependencies.app_config import AppConfig
+from agin.engine_compilation_tools.config import Config
 
 # Step 0: prepare
 
-config = AppConfig.from_json("config.json")
+config = Config.from_json("configs/engine_compiler_config.json")
+torch_dtype = torch.float16
+onnx_model_filename = "encoder.onnx"
 
 engine_path = config.engine_save_path / "encoder.engine"
 if os.path.isfile(engine_path):
@@ -19,7 +20,7 @@ if os.path.isfile(engine_path):
 # Step 1: load model as torch model
 
 taesdxl_config = AutoencoderTiny.load_config(config.path_to_models / "taesdxl/config.json")
-taesdxl = AutoencoderTiny.from_config(taesdxl_config).to("cuda", config.torch_dtype)
+taesdxl = AutoencoderTiny.from_config(taesdxl_config).to("cuda", torch_dtype)
 taesdxl.load_state_dict(load_file(config.path_to_models / "taesdxl/weights.safetensors", device="cuda"))
 
 encoder = taesdxl.encoder
@@ -27,12 +28,12 @@ encoder = encoder.eval()
 
 # Step 2: save it as onnx model
 
-dummy_input = torch.randn(1, 3, config.height, config.width).to("cuda", config.torch_dtype)
+dummy_input = torch.randn(1, 3, config.height, config.width).to("cuda", torch_dtype)
 
 torch.onnx.export(
     encoder,
     dummy_input,
-    config.path_to_temp_onnx_models / "encoder.onnx",
+    onnx_model_filename,
     export_params=True,
     opset_version=13,
     do_constant_folding=True,
@@ -56,10 +57,9 @@ flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 network = builder.create_network(flag)
 parser = trt.OnnxParser(network, TRT_LOGGER)
 
-path_onnx_model = config.path_to_temp_onnx_models / "encoder.onnx"
-with open(path_onnx_model, "rb") as f:
+with open(onnx_model_filename, "rb") as f:
     if not parser.parse(f.read()):
-        print(f"ERROR: Failed to parse the ONNX file {path_onnx_model}")
+        print(f"ERROR: Failed to parse the ONNX file {onnx_model_filename}")
         for error in range(parser.num_errors):
             print(parser.get_error(error))
             
@@ -94,11 +94,10 @@ engine_config.set_flag(trt.BuilderFlag.FP16)
 
 # Step 4: compile engine
 
-engine_bytes = builder.build_serialized_network(network, engine_config) 
-with open(engine_path, "wb") as f:    
+engine_bytes = builder.build_serialized_network(network, engine_config)
+with open(engine_path, "wb") as f:
     f.write(engine_bytes)
 
 # Step 5: post-compilation cleanup
 
-if config.delete_onnx_models_after_compilation:
-    shutil.rmtree(config.path_to_temp_onnx_models)
+os.remove(onnx_model_filename)

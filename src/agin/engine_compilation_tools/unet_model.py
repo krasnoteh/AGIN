@@ -1,3 +1,7 @@
+# Forked from https://github.com/huggingface/diffusers/blob/main/src/diffusers/models/unets/unet_2d_condition.py
+# Added custom ExtendedAttnProcessor and extension distribution + collection logic.
+# Edited forward() to plain tensor inputs for onnx export.
+
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union

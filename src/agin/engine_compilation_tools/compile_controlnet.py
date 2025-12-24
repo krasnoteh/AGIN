@@ -5,28 +5,27 @@ import tensorrt as trt
 import os
 import shutil
 
-from dependencies.app_config import AppConfig
-from dependencies.controlnet_model import ControlNetModel
+from agin.engine_compilation_tools.config import Config
+from agin.engine_compilation_tools.controlnet_model import ControlNetModel
 
 # Step 0: prepare
 
-config = AppConfig.from_json("config.json")
+config = Config.from_json("configs/engine_compiler_config.json")
+torch_dtype = torch.float16
+onnx_model_filename = "controlnet.onnx"
+onnx_model_data_filename = "controlnet.data"
+path_to_onnx_files = "controlnet_onnx_files"
+engine_path = config.engine_save_path / "controlnet.engine"
 
-engine_path = config.engine_save_path / "detail_controlnet.engine"
 if os.path.isfile(engine_path):
     print("Engine", engine_path, "already exists.")
     exit()
 
 # Step 1: load model as torch model
 
-controlnet = ControlNetModel.from_pretrained(
-    config.path_to_models / "lineart_controlnet",
-    torch_dtype=config.torch_dtype
-).to("cuda", config.torch_dtype)
+controlnet = ControlNetModel.from_pretrained(config.path_to_models / "controlnet").to("cuda", torch_dtype)
 
 # Step 2: save it as onnx model (as many files)
-
-path_to_onnx_files = config.path_to_temp_onnx_models / "controlnet_onnx_files"
 
 os.makedirs(path_to_onnx_files, exist_ok=True)
 
@@ -35,12 +34,12 @@ latent_width = config.width // 8
 
 def generate_onnx_sample_input(batch_size=1):
     inputs = (
-        torch.randn(batch_size, 4, latent_height, latent_width, device="cuda", dtype=config.torch_dtype), 
-        torch.randn(batch_size, device="cuda", dtype=config.torch_dtype),  
-        torch.randn(batch_size, 77, 2048, device="cuda", dtype=config.torch_dtype), 
-        torch.randn(batch_size, 3, config.height, config.width, device="cuda", dtype=config.torch_dtype),  
-        torch.randn(batch_size, 1280, device="cuda", dtype=config.torch_dtype), 
-        torch.randn(batch_size, 6, device="cuda", dtype=config.torch_dtype), 
+        torch.randn(batch_size, 4, latent_height, latent_width, device="cuda", dtype=torch_dtype), 
+        torch.randn(batch_size, device="cuda", dtype=torch_dtype),  
+        torch.randn(batch_size, 77, 2048, device="cuda", dtype=torch_dtype), 
+        torch.randn(batch_size, 3, config.height, config.width, device="cuda", dtype=torch_dtype),  
+        torch.randn(batch_size, 1280, device="cuda", dtype=torch_dtype), 
+        torch.randn(batch_size, 6, device="cuda", dtype=torch_dtype), 
     )
     
     input_names = [
@@ -65,7 +64,7 @@ for i in output_names:
 torch.onnx.export(
     controlnet,
     inputs,
-    str(path_to_onnx_files / "controlnet.onnx"),
+    os.path.join(path_to_onnx_files, onnx_model_filename),
     export_params=True,
     do_constant_folding=True,
     input_names=input_names,
@@ -77,27 +76,28 @@ torch.onnx.export(
 
 # Step 3: merge many onnx files into one
 
-onnx_model = onnx.load(path_to_onnx_files / "controlnet.onnx")
+onnx_model = onnx.load(os.path.join(path_to_onnx_files, onnx_model_filename))
 
 convert_model_to_external_data(
     onnx_model,
     all_tensors_to_one_file=True,  
-    location="controlnet.data",
+    location=onnx_model_data_filename,
     size_threshold=0,              
     convert_attribute=False        
 )
 
 onnx.save_model(
     onnx_model,
-    "controlnet.onnx",
+    onnx_model_filename,
     save_as_external_data=True,
     all_tensors_to_one_file=True,
-    location="controlnet.data",
+    location=onnx_model_data_filename,
     size_threshold=0,
 )
 
 del onnx_model
 del controlnet
+torch.cuda.empty_cache()
 
 # Step 4: configure engine
 
@@ -112,10 +112,9 @@ flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 network = builder.create_network(flag)
 parser = trt.OnnxParser(network, TRT_LOGGER)
 
-path_onnx_model = "controlnet.onnx"
-with open(path_onnx_model, "rb") as f:
+with open(onnx_model_filename, "rb") as f:
     if not parser.parse(f.read()):
-        print(f"ERROR: Failed to parse the ONNX file {path_onnx_model}")
+        print(f"ERROR: Failed to parse the ONNX file {onnx_model_filename}")
         for error in range(parser.num_errors):
             print(parser.get_error(error))
             
@@ -159,8 +158,7 @@ with open(engine_path, "wb") as f:
 
 # Step 6: post-compilation cleanup
 
-os.remove("controlnet.onnx")
-os.remove("controlnet.data")
+os.remove(onnx_model_filename)
+os.remove(onnx_model_data_filename)
 
-if config.delete_onnx_models_after_compilation:
-    shutil.rmtree(config.path_to_temp_onnx_models)
+shutil.rmtree(path_to_onnx_files)

@@ -1,3 +1,7 @@
+# Forked from https://github.com/hzwer/ECCV2022-RIFE/blob/main/model/IFNet.py
+# Hardcoded input format for onnx export.
+# Fixed some onnx incompatibility issue.
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

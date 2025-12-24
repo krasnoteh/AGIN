@@ -6,9 +6,10 @@ def main():
     config_path = "configs/stream_processor_config.json"
 
     stream_processor = StreamProcessor(config_path)
-    stream_processor.start()
     input_tensor = stream_processor.get_input_tensor()
     output_tensor = stream_processor.get_output_tensor()
+    stream_processor.start()
+    
     stream_processor.set_prompt("A man in the cyberpunk street, night, neon lamps, colorful")
     resolution = stream_processor.get_resolution()
 

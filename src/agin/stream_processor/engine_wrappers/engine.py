@@ -1,3 +1,9 @@
+# This is the very simple and stable way to infer tensorrt engine with torch.
+# There is no cuda graph capture implemented here.
+# Cuda graph capture increased performance on about 1-2% in our benchmarks.
+# But it made code much more complex and added possible gpu incompatibilities.
+# So we decided not to add it here.
+
 from collections import OrderedDict
 import tensorrt as trt
 import torch

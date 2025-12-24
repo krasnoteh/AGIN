@@ -1,3 +1,6 @@
+# Forked from https://github.com/huggingface/diffusers/blob/main/src/diffusers/models/controlnets/controlnet.py
+# Edited forward() to plain tensor inputs for onnx export.
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 

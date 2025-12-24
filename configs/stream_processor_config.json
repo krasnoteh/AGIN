@@ -14,16 +14,16 @@
         "tokenizer_2": "tokenizer_2",
         "scheduler": "scheduler"
     },
-    "engines_path" : "engines/portrait_engines",
+    "engines_path" : "engines/square_engines",
     "engines_filenames" : {
         "unet" : "unet.engine",
-        "controlnet" : "detail_controlnet.engine",
+        "controlnet" : "controlnet.engine",
         "encoder" : "encoder.engine",
-        "decoder" : "tiny_decoder.engine",
+        "decoder" : "taesdxl_decoder.engine",
         "interpolation_model" : "interpolation_model.engine"
     },
     "resolution" : {
-        "height" : 1344,
-        "width" : 768
+        "height" : 1024,
+        "width" : 1024
     }
 }
