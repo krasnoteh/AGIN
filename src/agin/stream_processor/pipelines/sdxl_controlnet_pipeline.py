@@ -1,10 +1,20 @@
 import torch
+from typing import Tuple
+from agin.stream_processor.diffusion_task import DiffusionTask
 
 
 class StableDiffusionXLControlNetPipeline:
     """
     Lightweight SDXL ControlNet pipeline wrapper for batched stream diffusion.
-    UNet and ControlNet are handled externally.
+
+    Responsibilities:
+    - Prepare initial latents and conditioning
+    - Track diffusion timestep progression
+    - Emit DiffusionTask objects for batched execution
+    - Consume noise predictions and update latents
+    - Decode final latent into image
+
+    UNet and ControlNet execution are handled externally.
     """
 
     def __init__(
@@ -17,8 +27,8 @@ class StableDiffusionXLControlNetPipeline:
         tokenizer_2,
         scheduler,
         seed,
-        device="cuda",
-        dtype=torch.float16,
+        device: str = "cuda",
+        dtype: torch.dtype = torch.float16,
     ):
         self.encoder = encoder
         self.decoder = decoder
@@ -32,7 +42,19 @@ class StableDiffusionXLControlNetPipeline:
         self.dtype = dtype
         self.generator = torch.Generator(device=device).manual_seed(seed)
 
-    def retrieve_timesteps(self, num_inference_steps, inversion_strength: float = 1.0):
+        self.latents = None
+        self.timesteps = None
+        self.current_timestep_index = None
+        self.latent_is_ready = False
+
+    def retrieve_timesteps(
+        self,
+        num_inference_steps: int,
+        inversion_strength: float = 1.0,
+    ) -> Tuple[torch.Tensor, int]:
+        """
+        Computes the diffusion timesteps based on inversion strength.
+        """
         init_step = min(
             max(int(num_inference_steps * inversion_strength), 1),
             num_inference_steps,
@@ -41,9 +63,12 @@ class StableDiffusionXLControlNetPipeline:
 
         timesteps = self.scheduler.timesteps[start_step * self.scheduler.order :]
         return timesteps, num_inference_steps - start_step
-    
+
     @torch.no_grad()
     def encode_prompt(self, prompt: str):
+        """
+        Encodes the text prompt using both SDXL text encoders.
+        """
         inputs_1 = self.tokenizer(
             prompt,
             padding="max_length",
@@ -93,39 +118,55 @@ class StableDiffusionXLControlNetPipeline:
     @torch.no_grad()
     def execute_preparations(
         self,
-        prompt,
+        prompt: str,
         controlnet_image,
-        inversion_strength,
-        controlnet_conditioning_scale,
+        inversion_strength: float,
+        controlnet_conditioning_scale: float,
         color_conditioning_image,
-        num_inference_steps,
+        num_inference_steps: int,
         pipe_cache,
     ):
-        color_conditioning_image = torch.tensor(color_conditioning_image, device=self.device, dtype=self.dtype)
-        color_conditioning_image = color_conditioning_image.permute(2, 0, 1).unsqueeze(0)
+        """
+        Initializes latent state, text conditioning, and scheduler.
+        Must be called before any diffusion steps.
+        """
+        # Image preprocessing
+        color_conditioning_image = torch.tensor(
+            color_conditioning_image,
+            device=self.device,
+            dtype=self.dtype,
+        ).permute(2, 0, 1).unsqueeze(0)
         color_conditioning_image = color_conditioning_image / 128.0 - 1.0
 
-        controlnet_image = torch.tensor(controlnet_image, device=self.device, dtype=self.dtype)
-        controlnet_image = controlnet_image.permute(2, 0, 1).unsqueeze(0)
+        controlnet_image = torch.tensor(
+            controlnet_image,
+            device=self.device,
+            dtype=self.dtype,
+        ).permute(2, 0, 1).unsqueeze(0)
         controlnet_image = controlnet_image / 255.0
 
         height, width = controlnet_image.shape[-2:]
         latent_height, latent_width = height // 8, width // 8
 
+        # Prompt encoding (cached)
         if prompt in pipe_cache.prompt_cache:
             text_embeds, encoder_hidden_states = pipe_cache.prompt_cache[prompt]
         else:
             text_embeds, encoder_hidden_states = self.encode_prompt(prompt)
             pipe_cache.prompt_cache[prompt] = (text_embeds, encoder_hidden_states)
 
+        # Scheduler setup
         self.scheduler.set_timesteps(num_inference_steps, device=self.device)
-        timesteps, _ = self.retrieve_timesteps(num_inference_steps, inversion_strength)
+        self.timesteps, _ = self.retrieve_timesteps(
+            num_inference_steps,
+            inversion_strength,
+        )
 
-        self.timesteps = timesteps
         self.current_timestep_index = -1
 
-        timestep = timesteps[:1]
+        # Latent initialization
         num_latent_channels = 4
+        first_timestep = self.timesteps[:1]
 
         if inversion_strength == 1.0:
             latents = torch.normal(
@@ -139,51 +180,60 @@ class StableDiffusionXLControlNetPipeline:
             latents *= self.scheduler.init_noise_sigma
         else:
             latents = self._encode_and_add_noise(
-                timestep=timestep,
+                timestep=first_timestep,
                 conditioning_image=color_conditioning_image,
             )
 
+        # Persist state
         self.latents = latents
         self.text_embeds = text_embeds
         self.encoder_hidden_states = encoder_hidden_states
+        self.controlnet_image = controlnet_image
+        self.controlnet_conditioning_scale = controlnet_conditioning_scale
 
+        # SDXL time embedding
         self.time_ids = torch.tensor(
             [[1024, 1024, 0, 0, 1024, 1024]],
             dtype=self.dtype,
             device=self.device,
         )
 
-        self.controlnet_image = controlnet_image
-        self.controlnet_conditioning_scale = controlnet_conditioning_scale
         self.latent_is_ready = False
 
     @torch.no_grad()
-    def get_diffusion_task(self):
+    def get_diffusion_task(self) -> DiffusionTask:
+        """
+        Advances the internal timestep index and returns a DiffusionTask.
+        """
         self.current_timestep_index += 1
-        t = self.timesteps[self.current_timestep_index]
+        timestep = self.timesteps[self.current_timestep_index]
 
-        latent_input = self.scheduler.scale_model_input(self.latents, t)
+        scaled_latents = self.scheduler.scale_model_input(
+            self.latents,
+            timestep,
+        )
 
-        return {
-            "sample": latent_input,
-            "timestep": t,
-            "encoder_hidden_states": self.encoder_hidden_states,
-            "added_cond_kwargs": {
-                "text_embeds": self.text_embeds,
-                "time_ids": self.time_ids,
-            },
-            "controlnet_image": self.controlnet_image,
-            "controlnet_conditioning_scale": self.controlnet_conditioning_scale,
-        }
+        return DiffusionTask(
+            sample=scaled_latents,
+            timestep=timestep,
+            encoder_hidden_states=self.encoder_hidden_states,
+            text_embeds=self.text_embeds,
+            time_ids=self.time_ids,
+            controlnet_image=self.controlnet_image,
+            conditioning_scale=self.controlnet_conditioning_scale,
+        )
 
     @torch.no_grad()
     def return_diffusion_result(self, result):
+        """
+        Consumes the predicted noise and updates the latent state.
+        """
         noise_pred = result[0]
-        t = self.timesteps[self.current_timestep_index]
+        timestep = self.timesteps[self.current_timestep_index]
 
         self.latents = self.scheduler.step(
             noise_pred,
-            t,
+            timestep,
             self.latents,
             generator=self.generator,
         )[0]
@@ -192,9 +242,10 @@ class StableDiffusionXLControlNetPipeline:
             self.latent_is_ready = True
 
     @torch.no_grad()
-    def decode_latent(self):
+    def decode_latent(self) -> torch.Tensor:
+        """
+        Decodes the final latent into an RGB image tensor in [0, 1].
+        """
         image = self.decoder(self.latents)
         image = (image + 1) / 2.0
-        image = torch.clamp(image, 0, 1)
-
-        return image
+        return torch.clamp(image, 0, 1)

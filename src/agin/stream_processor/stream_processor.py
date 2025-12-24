@@ -25,11 +25,19 @@ class StreamProcessor:
         self.pack_is_ready = Value('b', False)
         self.last_processing_time = Value("f", 0.0)
         
-        self.model_inference_subprocess = ModelInferenceSubprocess(self.config, self.input_shared_tensor.name, self.output_batch_shared_tensor.name, self.pack_is_ready, self.last_processing_time)
+        self.model_inference_subprocess = ModelInferenceSubprocess(
+            self.config, self.input_shared_tensor.name, self.output_batch_shared_tensor.name, self.pack_is_ready, self.last_processing_time)
         self.model_inference_subprocess.start()
 
-        self.output_scheduler_subprocess = OutputSchedulerSubprocess(self.config, self.output_batch_shared_tensor.name, self.output_shared_tensor.name, self.pack_is_ready, self.last_processing_time)
+        self.output_scheduler_subprocess = OutputSchedulerSubprocess(
+            self.config, self.output_batch_shared_tensor.name, self.output_shared_tensor.name, self.pack_is_ready, self.last_processing_time)
         self.output_scheduler_subprocess.start()
+
+    def get_input_tensor(self) -> SharedTensor:
+        return self.input_shared_tensor
+
+    def get_output_tensor(self) -> SharedTensor:
+        return self.output_shared_tensor
 
     def stop(self) -> None:
         self.model_inference_subprocess.stop()
@@ -67,3 +75,4 @@ class StreamProcessor:
 
     def get_output_shared_tensor_name(self) -> str:
         return self.output_shared_tensor.name
+    
