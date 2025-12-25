@@ -2,6 +2,12 @@
 name = "agin"
 version = "1.0"
 requires-python = ">=3.9"
+dependencies = [
+    "transformers",
+    "diffusers",
+    "numpy",
+    "pyzmq"
+]
 
 [build-system]
 requires = ["setuptools"]

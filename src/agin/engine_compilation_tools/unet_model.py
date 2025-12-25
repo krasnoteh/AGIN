@@ -102,8 +102,11 @@ class ExtendedAttnProcessor:
         self.native_key = key
         self.native_value = value
 
+        # This is the absolute core two lines of the whole project, you are probably looking for them
+        # -------------------------------------------------------------------------------------------
         key = torch.cat([self.extension_key,  self.native_key], dim = 1)
         value = torch.cat([self.extension_value, self.native_value], dim = 1)
+        # -------------------------------------------------------------------------------------------
 
         attention_probs = attn.get_attention_scores(query, key, attention_mask)
         hidden_states = torch.bmm(attention_probs, value)

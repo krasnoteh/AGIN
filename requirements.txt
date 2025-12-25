@@ -1,0 +1,8 @@
+diffusers==0.32.2
+transformers==4.51.3
+onnx
+onnxruntime
+numpy>=2.0
+opencv-python==4.12.0.88
+tensorrt==10.11.0.33
+polygraphy==0.49.26
