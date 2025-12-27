@@ -170,12 +170,14 @@ class ModelInferenceSubprocess:
 
         color_conditioning_image = cv2.cvtColor(image_input, cv2.COLOR_RGB2BGR)
 
-        canny = cv2.Canny(image_input, self.process_state["canny_low_threshold"], self.process_state["canny_high_threshold"])
-        canny_image = cv2.cvtColor(canny, cv2.COLOR_GRAY2BGR)
+        # For some reason we can simply pass grayscale image instead of canny edges to this controlnet
+        # And it works even better
+        controlnet_image = cv2.cvtColor(image_input, cv2.COLOR_RGB2GRAY)
+        controlnet_image = cv2.cvtColor(controlnet_image, cv2.COLOR_GRAY2BGR)
 
         pipe.execute_preparations(self.process_state['prompt'],
                                   num_inference_steps=self.process_state["steps"],
-                                  controlnet_image = canny_image,
+                                  controlnet_image = controlnet_image,
                                   color_conditioning_image = color_conditioning_image,
                                   inversion_strength = self.process_state["inversion_strength"],
                                   controlnet_conditioning_scale= self.process_state["controlnet_conditioning_scale"],
