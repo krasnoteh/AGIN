@@ -1,24 +1,14 @@
-Below is a cleaned-up and more polished version of your **README.md**, with improved Markdown structure, clearer wording, consistent terminology, and better readability—while preserving your original intent and technical depth.
-
-You can copy-paste this directly as your new README.
-
----
-
 # **AGIN**
 
-> **Real-time video stream generation with diffusion models**
+> **Real-time video stream consistent stylization with diffusion model**
 
 AGIN is a **Stream Diffusion–style** algorithm for **real-time video stream processing** using diffusion models. It focuses on **temporal consistency, low latency, and high throughput**, enabling stable video generation at high resolutions.
 
-🎬 *(demo video placeholder: `demo.mp4`)*
-
----
+(demo video placeholder: `demo.mp4`)
 
 ## Overview
 
 AGIN builds upon the ideas of Stream Diffusion and improves them in several key directions:
-
-### Core Improvements
 
 * **Extended temporal attention**
   Inspired by TokenFlow and adapted for **sequential frame processing**.
@@ -30,7 +20,6 @@ AGIN builds upon the ideas of Stream Diffusion and improves them in several key 
 * **Frame interpolation (RIFE)**
   Reduces the “slide-show” effect and further improves visual smoothness.
 
----
 
 ## Performance Optimizations
 
@@ -44,13 +33,9 @@ AGIN applies multiple system-level and model-level optimizations to reduce laten
 * **Shared memory buffers** for efficient IPC
 * No CFG overhead (SDXL-Turbo does not require it)
 
-### Performance
 
-* **Up to 20 FPS**
-* Resolution: **1024 × 1024**
-* Hardware: **RTX 5090**
+All this gives **Up to 20 FPS** with **1024 × 1024** resolution and **SDXL quality** on **RTX 5090** (other gpus are supported too, but with slight worse performance).
 
----
 
 ## Additional Features
 
@@ -62,9 +47,8 @@ AGIN applies multiple system-level and model-level optimizations to reduce laten
 * Supports **arbitrary SDXL-compatible resolutions**
 * **LoRA** support for UNet
 
----
 
-## Interface Example
+## Usage Example
 
 ```python
 from agin import StreamProcessor
@@ -84,7 +68,7 @@ def main():
     )
 
     resolution = stream_processor.get_resolution()
-    cap = cv2.VideoCapture(4)
+    cap = cv2.VideoCapture(0)
 
     while True:
         ret, frame = cap.read()
@@ -108,11 +92,16 @@ if __name__ == "__main__":
     main()
 ```
 
----
-
 ## Setup
 
-### 1. Install Python Dependencies
+### 1. Git clone the repo
+
+```bash
+git clone https://github.com/krasnoteh/AGIN
+cd AGIN
+```
+
+### 2. Install Python Dependencies
 
 > **Python 3.9 is recommended** (most stable for TensorRT)
 
@@ -127,9 +116,8 @@ pip install -e .
 
 *(Adjust CUDA version if needed.)*
 
----
 
-### 2. Download Models
+### 3. Download Models
 
 All models should be placed under:
 
@@ -177,7 +165,12 @@ agin/models
     └── weights.safetensors
 ```
 
-#### Recommended Sources
+#### Option 1: download all models in zip archive from google drive:
+
+**All models**
+  [https://drive.google.com/file/d/1GHuP9GCHO87EjUA9QQLhG_P-CJwf4sOK/view?usp=sharing](https://drive.google.com/file/d/1GHuP9GCHO87EjUA9QQLhG_P-CJwf4sOK/view?usp=sharing)
+
+#### Option 2: download models from sourses:
 
 * **ControlNet (Scribble, SDXL)**
   [https://huggingface.co/xinsir/controlnet-scribble-sdxl-1.0](https://huggingface.co/xinsir/controlnet-scribble-sdxl-1.0)
@@ -197,7 +190,7 @@ agin/models
 
 ---
 
-### 3. Compile TensorRT Engines
+### 4. Compile TensorRT Engines
 
 ```bash
 cd agin
@@ -224,33 +217,29 @@ For advanced or custom compilation (e.g. LoRA support), see:
 agin/src/agin/engine_compilation_tools
 ```
 
----
 
-## Running the Demo
+### 5. Run the demo
 
 ```bash
 cd agin
 conda activate agin
-python scripts/run_cv3_demo.py
+python scripts/run_cv2_demo.py
 ```
-
----
 
 ## About the Name
 
-**“AGIN”** comes from the Kazakh word **“ағын”**, meaning *stream*.
+Name stands for:
 
-It also stands for:
-
-* **A**rbitrary model size
+* **A**synchronous frame processing
 * **G**lobal generation context
-* **I**ntermediate frame interpolation
-* **N**ever-ending optimization
+* **I**interpolation of intermediate frames
+* **N**o computational overhead
 
----
+**“AGIN”** is also similar to Kazakh word **“ағын”**, meaning *stream*.
+
 
 ##  Credits & License
 
-Developed by **CyberAY** in collaboration with **Noise2Signal**.
+Developed by **Krasnoteh** in collaboration with **Noise to Signal**.
 
 **License:** MIT
