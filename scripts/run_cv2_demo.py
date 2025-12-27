@@ -12,6 +12,7 @@ def main():
     
     stream_processor.set_prompt("A man in the cyberpunk street, night, neon lamps, colorful")
     resolution = stream_processor.get_resolution()
+
     cap = cv2.VideoCapture(0)
     while True:
         ret, frame = cap.read()

@@ -4,6 +4,8 @@ AGIN is a **Stream Diffusion–style** algorithm for **real-time video stream pr
 
 ![Demo](demo.gif)
 
+[▶ Full resolution video demo](demo.mp4)
+
 ## Overview
 
 AGIN builds upon the ideas of Stream Diffusion and improves them in several key directions:
