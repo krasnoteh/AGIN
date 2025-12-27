@@ -232,7 +232,7 @@ Name stands for:
 
 * **A**synchronous frame processing
 * **G**lobal generation context
-* **I**interpolation of intermediate frames
+* **I**nterpolation of intermediate frames
 * **N**o computational overhead
 
 **“AGIN”** is also similar to Kazakh word **“ағын”**, meaning *stream*.
