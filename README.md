@@ -1,10 +1,14 @@
+![License](https://img.shields.io/badge/license-MIT-green)
+![Python](https://img.shields.io/badge/python-3.9-blue)
+![CUDA](https://img.shields.io/badge/CUDA-12.8-orange)
+
 # **AGIN**
 
-AGIN is a **Stream Diffusion–style** algorithm for **real-time video stream processing** using diffusion models. It focuses on **temporal consistency, low latency, and high throughput**, enabling stable video generation at high resolutions.
+AGIN is a **Stream Diffusion–style** algorithm for **real-time video stream processing** using diffusion models. It focuses on **temporal consistency, low latency, and high throughput**, enabling stable, high-resolution video generation.
 
-![Demo](demo.gif)
+![Demo](assets/demo.gif)
 
-[▶ Full resolution video demo](large_demo.mp4)
+[▶ Full-resolution video demo](assets/large_demo.mp4)
 
 ## Overview
 
@@ -12,14 +16,13 @@ AGIN builds upon the ideas of Stream Diffusion and improves them in several key 
 
 * **Extended temporal attention**
   Inspired by TokenFlow and adapted for **sequential frame processing**.
-  This is the **core feature** that significantly improves temporal consistency and reduces jitter.
+  This is the **core feature**, significantly improving temporal consistency and reducing jitter.
 
 * **Large diffusion models with very few steps**
   Uses **SDXL-Turbo** with **2–4 diffusion steps**.
 
 * **Frame interpolation (RIFE)**
-  Reduces the “slide-show” effect and further improves visual smoothness.
-
+  Reduces the “slideshow” effect and further improves visual smoothness.
 
 ## Performance Optimizations
 
@@ -29,24 +32,22 @@ AGIN applies multiple system-level and model-level optimizations to reduce laten
 * Cached text embeddings
 * **FP16** computation
 * Optional **TAESDXL** decoder
-* Model inference runs in a **separate process**
+* Model inference running in a **separate process**
 * **Shared memory buffers** for efficient IPC
 * No CFG overhead (SDXL-Turbo does not require it)
 
-
-All this gives **Up to 20 FPS** with **1024 × 1024** resolution and **SDXL quality** on **RTX 5090** (other gpus are supported too, but with slight worse performance).
-
+All of this enables **up to 20 FPS** at **1024 × 1024** resolution with **SDXL-level quality** on an **RTX 5090**.
+Other GPUs are also supported, with slightly lower performance.
 
 ## Additional Features
 
 * ControlNet supported as the **default mode**
 * Simple, non-blocking API:
 
-  * Sending/receiving frames is asynchronous
+  * Asynchronous frame sending and receiving
   * Pipeline configuration can be changed on the fly
-* Supports **arbitrary SDXL-compatible resolutions**
-* **LoRA** support for UNet
-
+* Support for **arbitrary SDXL-compatible resolutions**
+* **LoRA** support for the UNet
 
 ## Usage Example
 
@@ -64,7 +65,7 @@ def main():
 
     stream_processor.start()
     stream_processor.set_prompt(
-        "A man in the cyberpunk street, night, neon lamps, colorful"
+        "A man in a cyberpunk street at night, neon lamps, colorful lighting"
     )
 
     resolution = stream_processor.get_resolution()
@@ -92,16 +93,24 @@ if __name__ == "__main__":
     main()
 ```
 
+
+## System Requirements
+
+- OS: Linux/Windows (macOS not tested)
+- GPU: NVIDIA RTX 4090+
+- RAM: 32 GB recommended
+- VRAM: 24+ GB recommended for 1024 × 1024 resolution
+
 ## Setup
 
-### 1. Git clone the repo
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/krasnoteh/AGIN
-cd AGIN
+cd agin
 ```
 
-### 2. Install Python Dependencies
+### 2. Install Python dependencies
 
 > **Python 3.9 is recommended** (most stable for TensorRT)
 
@@ -114,7 +123,7 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-*(Adjust CUDA version if needed.)*
+*(Adjust the CUDA version if needed.)*
 
 
 ### 3. Download Models
@@ -165,12 +174,12 @@ agin/models
     └── weights.safetensors
 ```
 
-#### Option 1: download all models in zip archive from google drive:
+#### Option 1: Download all models as a ZIP archive (Google Drive)
 
-**All models**
-  [https://drive.google.com/file/d/1GHuP9GCHO87EjUA9QQLhG_P-CJwf4sOK/view?usp=sharing](https://drive.google.com/file/d/1GHuP9GCHO87EjUA9QQLhG_P-CJwf4sOK/view?usp=sharing)
+**All models:**
+[https://drive.google.com/file/d/1GHuP9GCHO87EjUA9QQLhG_P-CJwf4sOK/view?usp=sharing](https://drive.google.com/file/d/1GHuP9GCHO87EjUA9QQLhG_P-CJwf4sOK/view?usp=sharing)
 
-#### Option 2: download models from sourses:
+#### Option 2: Download models from individual sources
 
 * **ControlNet (Scribble, SDXL)**
   [https://huggingface.co/xinsir/controlnet-scribble-sdxl-1.0](https://huggingface.co/xinsir/controlnet-scribble-sdxl-1.0)
@@ -182,13 +191,12 @@ agin/models
   [https://drive.google.com/file/d/1h42aGYPNJn2q8j_GVkS_yDu__G_UZ2GX/view](https://drive.google.com/file/d/1h42aGYPNJn2q8j_GVkS_yDu__G_UZ2GX/view)
   *(Required file: `flownet.pkl`)*
 
-* **RIFE Repository (backup)**
+* **RIFE repository (backup)**
   [https://github.com/hzwer/ECCV2022-RIFE](https://github.com/hzwer/ECCV2022-RIFE)
 
 * **SDXL-Turbo and related models**
   [https://huggingface.co/stabilityai/sdxl-turbo](https://huggingface.co/stabilityai/sdxl-turbo)
 
----
 
 ### 4. Compile TensorRT Engines
 
@@ -200,16 +208,24 @@ python scripts/compile_all_engines.py
 
 #### Notes
 
-* Compiled engines will be stored in:
+* Compiled engines are stored in:
 
   ```text
   engines/square_engines/
   ```
+
 * To use a different resolution:
 
   * Edit `configs/engine_compiler_config.json`
   * Consider using a separate directory (e.g. `portrait_engines`)
   * Update `configs/stream_processor_config.json` accordingly
+
+* TensorRT engines are:
+  * GPU-architecture specific
+  * Resolution specific
+  * Not portable across machines
+
+  You must recompile engines when changing GPU or resolution.
 
 For advanced or custom compilation (e.g. LoRA support), see:
 
@@ -226,19 +242,28 @@ conda activate agin
 python scripts/run_cv2_demo.py
 ```
 
+
+## Contributing
+
+This project is research-oriented and under active development.
+
+- Bug reports are welcome
+- Please include logs, GPU model, and config files
+- Feature requests may not be prioritized
+
 ## About the Name
 
-Name stands for:
+The name stands for:
 
 * **A**synchronous frame processing
 * **G**lobal generation context
 * **I**nterpolation of intermediate frames
 * **N**o computational overhead
 
-**“AGIN”** is also similar to Kazakh word **“ағын”**, meaning *stream*.
+**AGIN** is also similar to the Kazakh word **“ағын”**, meaning *stream*.
 
 
-##  Credits & License
+## Credits & License
 
 Developed by **Krasnoteh** in collaboration with **Noise to Signal**.
 
