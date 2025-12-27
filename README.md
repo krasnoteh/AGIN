@@ -1,10 +1,8 @@
 # **AGIN**
 
-> **Real-time video stream consistent stylization with diffusion model**
-
 AGIN is a **Stream Diffusion–style** algorithm for **real-time video stream processing** using diffusion models. It focuses on **temporal consistency, low latency, and high throughput**, enabling stable video generation at high resolutions.
 
-(demo video placeholder: `demo.mp4`)
+![Demo](demo.gif)
 
 ## Overview
 
