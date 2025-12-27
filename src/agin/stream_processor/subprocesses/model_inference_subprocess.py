@@ -172,6 +172,7 @@ class ModelInferenceSubprocess:
 
         # For some reason we can simply pass grayscale image instead of canny edges to this controlnet
         # And it works even better
+        # Very experimental, maybe I will return canny here
         controlnet_image = cv2.cvtColor(image_input, cv2.COLOR_RGB2GRAY)
         controlnet_image = cv2.cvtColor(controlnet_image, cv2.COLOR_GRAY2BGR)
 

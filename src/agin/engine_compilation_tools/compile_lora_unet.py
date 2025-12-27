@@ -27,14 +27,14 @@ from agin.engine_compilation_tools.unet_model import UNet2DConditionModel
 def compile_lora_unet():
     # Step 0: prepare
 
-    lora_name = "yakut_lora_2.safetensors"
+    lora_name = "your_lora.safetensors"
 
     config = Config.from_json("configs/engine_compiler_config.json")
     torch_dtype = torch.float16
     onnx_model_filename = "unet.onnx"
     onnx_model_data_filename = "unet.data"
     path_to_onnx_files = "unet_onnx_files"
-    engine_path = config.engine_save_path / "yakut_lora_2_unet.engine"
+    engine_path = config.engine_save_path / "your_lora_unet.engine"
 
     if os.path.isfile(engine_path):
         print("Engine", engine_path, "already exists.")
