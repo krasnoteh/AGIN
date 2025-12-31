@@ -265,6 +265,10 @@ The name stands for:
 
 ## Credits & License
 
-Developed by **Krasnoteh** in collaboration with **Noise to Signal**.
+Developed by **Krasnoteh** 
+
+Concept & Art Direction: **Alexandr Kozlov**
+
+In collaboration with [**Noise to Signal**](https://n2s.pro/)
 
 **License:** MIT
