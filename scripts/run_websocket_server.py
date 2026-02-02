@@ -20,5 +20,5 @@ app.dependency_overrides[get_stream_processor_service] = lambda: stream_processo
 app.include_router(router, prefix="/services/agin")
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+uvicorn.run(app, host="0.0.0.0", port=8000)
