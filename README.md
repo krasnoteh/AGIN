@@ -244,6 +244,8 @@ python scripts/run_cv2_demo.py
 AGIN also includes a local **Web UI demo** with a more convenient interface for selecting the input device and switching prompts in real time.
 The frontend communicates with the backend via **WebSocket**.
 
+Note, that you need [**Node.js**](https://nodejs.org/en/download) to be installed.
+
 #### 1) Build the frontend
 
 ```bash
@@ -252,7 +254,15 @@ npm install
 npm run build
 ```
 
-#### 2) Start the backend (WebSocket server)
+#### 2) Install web-related Python packages
+
+```bash
+cd agin
+conda install uvicorn
+pip install -r requirements_web_ui.txt
+```
+
+#### 3) Start the backend (WebSocket server)
 
 ```bash
 cd agin
@@ -260,7 +270,7 @@ conda activate agin
 python scripts/run_websocket_server.py
 ```
 
-#### 3) Start the frontend (in a separate terminal)
+#### 4) Start the frontend (in a separate terminal)
 
 ```bash
 cd agin/web_ui
