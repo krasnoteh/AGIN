@@ -14,40 +14,40 @@ AGIN is a **Stream Diffusion–style** algorithm for **real-time video stream pr
 
 AGIN builds upon the ideas of Stream Diffusion and improves them in several key directions:
 
-* **Extended temporal attention**
+- **Extended temporal attention**
   Inspired by TokenFlow and adapted for **sequential frame processing**.
   This is the **core feature**, significantly improving temporal consistency and reducing jitter.
 
-* **Large diffusion models with very few steps**
+- **Large diffusion models with very few steps**
   Uses **SDXL-Turbo** with **2–4 diffusion steps**.
 
-* **Frame interpolation (RIFE)**
+- **Frame interpolation (RIFE)**
   Reduces the “slideshow” effect and further improves visual smoothness.
 
 ## Performance Optimizations
 
 AGIN applies multiple system-level and model-level optimizations to reduce latency and increase throughput:
 
-* TensorRT compilation for **all pipeline models**
-* Cached text embeddings
-* **FP16** computation
-* Optional **TAESDXL** decoder
-* Model inference running in a **separate process**
-* **Shared memory buffers** for efficient IPC
-* No CFG overhead (SDXL-Turbo does not require it)
+- TensorRT compilation for **all pipeline models**
+- Cached text embeddings
+- **FP16** computation
+- Optional **TAESDXL** decoder
+- Model inference running in a **separate process**
+- **Shared memory buffers** for efficient IPC
+- No CFG overhead (SDXL-Turbo does not require it)
 
 All of this enables **up to 20 FPS** at **1024 × 1024** resolution with **SDXL-level quality** on an **RTX 5090**.
 Other GPUs are also supported, with slightly lower performance.
 
 ## Additional Features
 
-* ControlNet supported as the **default mode**
-* Simple, non-blocking API:
+- ControlNet supported as the **default mode**
+- Simple, non-blocking API:
+  - Asynchronous frame sending and receiving
+  - Pipeline configuration can be changed on the fly
 
-  * Asynchronous frame sending and receiving
-  * Pipeline configuration can be changed on the fly
-* Support for **arbitrary SDXL-compatible resolutions**
-* **LoRA** support for the UNet
+- Support for **arbitrary SDXL-compatible resolutions**
+- **LoRA** support for the UNet
 
 ## Usage Example
 
@@ -93,7 +93,6 @@ if __name__ == "__main__":
     main()
 ```
 
-
 ## System Requirements
 
 - OS: Linux/Windows (macOS not tested)
@@ -123,8 +122,7 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-*(Adjust the CUDA version if needed.)*
-
+_(Adjust the CUDA version if needed.)_
 
 ### 3. Download Models
 
@@ -181,22 +179,21 @@ agin/models
 
 #### Option 2: Download models from individual sources
 
-* **ControlNet (Scribble, SDXL)**
+- **ControlNet (Scribble, SDXL)**
   [https://huggingface.co/xinsir/controlnet-scribble-sdxl-1.0](https://huggingface.co/xinsir/controlnet-scribble-sdxl-1.0)
 
-* **TAESDXL**
+- **TAESDXL**
   [https://huggingface.co/madebyollin/taesdxl](https://huggingface.co/madebyollin/taesdxl)
 
-* **RIFE (frame interpolation)**
-  [https://drive.google.com/file/d/1h42aGYPNJn2q8j_GVkS_yDu__G_UZ2GX/view](https://drive.google.com/file/d/1h42aGYPNJn2q8j_GVkS_yDu__G_UZ2GX/view)
-  *(Required file: `flownet.pkl`)*
+- **RIFE (frame interpolation)**
+  [https://drive.google.com/file/d/1h42aGYPNJn2q8j_GVkS_yDu\_\_G_UZ2GX/view](https://drive.google.com/file/d/1h42aGYPNJn2q8j_GVkS_yDu__G_UZ2GX/view)
+  _(Required file: `flownet.pkl`)_
 
-* **RIFE repository (backup)**
+- **RIFE repository (backup)**
   [https://github.com/hzwer/ECCV2022-RIFE](https://github.com/hzwer/ECCV2022-RIFE)
 
-* **SDXL-Turbo and related models**
+- **SDXL-Turbo and related models**
   [https://huggingface.co/stabilityai/sdxl-turbo](https://huggingface.co/stabilityai/sdxl-turbo)
-
 
 ### 4. Compile TensorRT Engines
 
@@ -208,22 +205,21 @@ python scripts/compile_all_engines.py
 
 #### Notes
 
-* Compiled engines are stored in:
+- Compiled engines are stored in:
 
   ```text
   engines/square_engines/
   ```
 
-* To use a different resolution:
+- To use a different resolution:
+  - Edit `configs/engine_compiler_config.json`
+  - Consider using a separate directory (e.g. `portrait_engines`)
+  - Update `configs/stream_processor_config.json` accordingly
 
-  * Edit `configs/engine_compiler_config.json`
-  * Consider using a separate directory (e.g. `portrait_engines`)
-  * Update `configs/stream_processor_config.json` accordingly
-
-* TensorRT engines are:
-  * GPU-architecture specific
-  * Resolution specific
-  * Not portable across machines
+- TensorRT engines are:
+  - GPU-architecture specific
+  - Resolution specific
+  - Not portable across machines
 
   You must recompile engines when changing GPU or resolution.
 
@@ -233,8 +229,9 @@ For advanced or custom compilation (e.g. LoRA support), see:
 agin/src/agin/engine_compilation_tools
 ```
 
+### 5. Run the CV2 Demo
 
-### 5. Run the demo
+This is a minimal **Python-only** demo that uses **OpenCV** to validate that the pipeline is working correctly.
 
 ```bash
 cd agin
@@ -242,6 +239,41 @@ conda activate agin
 python scripts/run_cv2_demo.py
 ```
 
+---
+
+### 6. Run the Web UI Demo
+
+AGIN also includes a local **Web UI demo** with a more convenient interface for selecting the input device and switching prompts in real time.
+The frontend communicates with the backend via **WebSocket**.
+
+#### 1) Build the frontend
+
+```bash
+cd agin/web_ui
+npm install
+npm run build
+```
+
+#### 2) Start the backend (WebSocket server)
+
+```bash
+cd agin
+conda activate agin
+python scripts/run_websocket_server.py
+```
+
+#### 3) Start the frontend (in a separate terminal)
+
+```bash
+cd agin/web_ui
+npm run start
+```
+
+Then open:
+
+```text
+http://localhost:3000
+```
 
 ## Contributing
 
@@ -255,17 +287,16 @@ This project is research-oriented and under active development.
 
 The name stands for:
 
-* **A**synchronous frame processing
-* **G**lobal generation context
-* **I**nterpolation of intermediate frames
-* **N**o computational overhead
+- **A**synchronous frame processing
+- **G**lobal generation context
+- **I**nterpolation of intermediate frames
+- **N**o computational overhead
 
-**AGIN** is also similar to the Kazakh word **“ағын”**, meaning *stream*.
-
+**AGIN** is also similar to the Kazakh word **“ағын”**, meaning _stream_.
 
 ## Credits & License
 
-Developed by **Krasnoteh** 
+Developed by **Krasnoteh**
 
 Concept & Art Direction: **Alexandr Kozlov**
 
