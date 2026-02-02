@@ -1,0 +1,29 @@
+{
+  "default_prompt": "cyberpunk street, neon lamps",
+  "default_steps": 2,
+  "default_inversion_strength": 1.0,
+  "default_controlnet_conditioning_scale": 1.0,
+  "default_canny_low_threshold": 30,
+  "default_canny_high_threshold": 30,
+  "default_seed": 52,
+  "models_path": "models",
+  "models_directories": {
+    "text_encoder": "text_encoder",
+    "text_encoder_2": "text_encoder_2",
+    "tokenizer": "tokenizer",
+    "tokenizer_2": "tokenizer_2",
+    "scheduler": "scheduler"
+  },
+  "engines_path": "engines/portrait_engines",
+  "engines_filenames": {
+    "unet": "unet.engine",
+    "controlnet": "controlnet.engine",
+    "encoder": "encoder.engine",
+    "decoder": "taesdxl_decoder.engine",
+    "interpolation_model": "interpolation_model.engine"
+  },
+  "resolution": {
+    "height": 1344,
+    "width": 768
+  }
+}
