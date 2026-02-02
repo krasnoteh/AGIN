@@ -239,8 +239,6 @@ conda activate agin
 python scripts/run_cv2_demo.py
 ```
 
----
-
 ### 6. Run the Web UI Demo
 
 AGIN also includes a local **Web UI demo** with a more convenient interface for selecting the input device and switching prompts in real time.
