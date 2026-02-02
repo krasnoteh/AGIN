@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 from agin.servers.websocket_server.router import router, get_stream_processor_service
 from agin.servers.websocket_server.stream_processor_service import StreamProcessorService
@@ -18,3 +19,6 @@ stream_processor_service = StreamProcessorService(config_path="configs/stream_pr
 app.dependency_overrides[get_stream_processor_service] = lambda: stream_processor_service
 app.include_router(router, prefix="/services/agin")
 
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
